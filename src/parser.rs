@@ -1,4 +1,4 @@
-use crate::{ast::{Identifier, LetStatement, Program, Statement}, lexer::Lexer, token::{Token, TokenType::{self, Assign, Eof, Ident, Let, Semicolon}}};
+use crate::{ast::{Identifier, Program, Statement}, lexer::Lexer, token::{Token, TokenType::{self, Assign, Eof, Ident, Let, Semicolon}}};
 
 #[derive(Default, Debug)]
 struct Parser {
@@ -41,14 +41,14 @@ impl Parser {
         program
     }
 
-    fn parse_statement(&mut self) -> Option<Box<dyn Statement>> {
+    fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token.token_type {
             Let => self.parse_let_statement(),
             _ => None
         }
     }
 
-    fn parse_let_statement(&mut self) -> Option<Box<dyn Statement>> {
+    fn parse_let_statement(&mut self) -> Option<Statement> {
         let cur_token = self.cur_token.clone();
 
         if !self.expect_peek(Ident) {
@@ -75,13 +75,11 @@ impl Parser {
         }
 
         Some(
-            Box::new(
-                LetStatement {
-                    token: cur_token,
-                    name: name,
-                    value: Box::new(None)
-                }
-            )
+            Statement::LetStatement {
+                token: cur_token,
+                name: name,
+                value: Box::new(None)
+            }
         )
     }
 
@@ -105,7 +103,7 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::{LetStatement, Node, Statement}, lexer::Lexer, parser::Parser};
+    use crate::{ast::{Node, Statement}, lexer::Lexer, parser::Parser};
 
     #[test]
     fn test_let_statements() {
@@ -129,20 +127,17 @@ mod tests {
 
         for (i, expected_identifier) in tests.iter().enumerate() {
             test_let_statement(&program.statements[i], expected_identifier);
-
         }
     }
 
-    fn test_let_statement(statement: &Box<dyn Statement>, expected_identifier: &String) {
-        let statement = &(*statement);
+    fn test_let_statement(statement: &Statement, expected_identifier: &String) {
         assert_eq!(statement.token_literal(), "let");
 
-        let option_let_statement = statement.as_any().downcast_ref::<LetStatement>();
-        assert!(option_let_statement.is_some());
+        assert!(matches!(statement, Statement::LetStatement { .. }));
 
-        if let Some(let_statement) = option_let_statement {
-            assert_eq!(&let_statement.name.value, expected_identifier);
-            assert_eq!(&let_statement.name.token_literal(), expected_identifier);
+        if let Statement::LetStatement { name, .. } =  statement{
+            assert_eq!(&name.value, expected_identifier);
+            assert_eq!(&name.token_literal(), expected_identifier);
         }
     }
 }
