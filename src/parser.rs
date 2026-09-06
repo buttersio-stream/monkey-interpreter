@@ -4,7 +4,8 @@ use crate::{ast::{Identifier, Program, Statement}, lexer::Lexer, token::{Token, 
 struct Parser {
     l: Lexer,
     cur_token: Token,
-    peek_token: Token
+    peek_token: Token,
+    errors: Vec<String>
 }
 
 impl Parser {
@@ -28,7 +29,7 @@ impl Parser {
         };
 
         loop {
-            if self.cur_token.token_type == Eof {
+            if self.cur_token_is(Eof) {
                 break;
             } else {
                 if let Some(stmt) = self.parse_statement() {
@@ -96,8 +97,14 @@ impl Parser {
             self.next_token();
             true
         } else {
+            self.peek_error(t);
             false
         }
+    }
+
+    fn peek_error(&mut self, t: TokenType) {
+        let msg = format!("expected next token to be {:?}, got {:?} instead", t, self.peek_token.token_type);
+        self.errors.push(msg);
     }
 }
 
@@ -117,6 +124,7 @@ mod tests {
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
+        check_parser_errors(&parser);
 
         assert_eq!(program.statements.len(), 3);
 
@@ -128,6 +136,21 @@ mod tests {
         for (i, expected_identifier) in tests.iter().enumerate() {
             test_let_statement(&program.statements[i], expected_identifier);
         }
+    }
+
+    fn check_parser_errors(p: &Parser) {
+        if p.errors.len() == 0 {
+            return
+        }
+
+        let count_message = format!("parser has {} errors\n", p.errors.len());
+        let error_messages = (&p.errors)
+            .into_iter()
+            .map(|s| format!(" {}", s))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(p.errors.len() == 0, "assertion failed: {count_message}{error_messages}\n");
     }
 
     fn test_let_statement(statement: &Statement, expected_identifier: &String) {
