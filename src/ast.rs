@@ -6,13 +6,16 @@ pub trait Node {
     fn token_literal(&self) -> String;
 }
 
-
+#[derive(Debug)]
 pub enum Statement {
-    Foo, // Temporary
     LetStatement {
         token: Token,
         name: Identifier,
         value: Box<Option<i32>>
+    },
+    ReturnStatement {
+        token: Token,
+        return_value: Box<Option<i32>>
     }
 }
 
@@ -48,7 +51,9 @@ impl Node for Statement {
             Statement::LetStatement { token, .. } => {
                 token.literal.clone()
             },
-            Statement::Foo => "".to_string()
+            Statement::ReturnStatement { token, .. } => {
+                token.literal.clone()
+            }
         }
     }
 }

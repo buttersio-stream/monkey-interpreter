@@ -1,4 +1,4 @@
-use crate::{ast::{Identifier, Program, Statement}, lexer::Lexer, token::{Token, TokenType::{self, Assign, Eof, Ident, Let, Semicolon}}};
+use crate::{ast::{Identifier, Program, Statement}, lexer::Lexer, token::{Token, TokenType::{self, Assign, Eof, Ident, Let, Return, Semicolon}}};
 
 #[derive(Default, Debug)]
 struct Parser {
@@ -45,8 +45,29 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token.token_type {
             Let => self.parse_let_statement(),
+            Return => self.parse_return_statement(),
             _ => None
         }
+    }
+
+    fn parse_return_statement(&mut self) -> Option<Statement> {
+        let cur_token = self.cur_token.clone();
+
+        self.next_token();
+
+        // TODO: We're skipping the expression until we
+        // encounter a semicolon
+        loop {
+            if self.cur_token_is(Semicolon) {
+                break;
+            } else {
+                self.next_token();
+            }
+        }
+
+        Some(
+            Statement::ReturnStatement { token: cur_token, return_value: Box::new(None) }
+        )
     }
 
     fn parse_let_statement(&mut self) -> Option<Statement> {
@@ -113,6 +134,32 @@ mod tests {
     use crate::{ast::{Node, Statement}, lexer::Lexer, parser::Parser};
 
     #[test]
+    fn test_return_statements() {
+        let input = String::from("
+            return 5;
+            return 10;
+            return 993322;
+        ");
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+
+        assert_eq!(program.statements.len(), 3);
+
+        for statement in program.statements {
+             match statement {
+                s @ Statement::ReturnStatement { .. } => {
+                    assert_eq!(s.token_literal(), "return");
+                },
+                other => { panic!("assertion failed: matched unexpected type {:?}", other) }
+            };
+        }
+    }
+
+    #[test]
     fn test_let_statements() {
         let input = String::from("
             let x = 5;
@@ -154,13 +201,13 @@ mod tests {
     }
 
     fn test_let_statement(statement: &Statement, expected_identifier: &String) {
-        assert_eq!(statement.token_literal(), "let");
-
-        assert!(matches!(statement, Statement::LetStatement { .. }));
-
-        if let Statement::LetStatement { name, .. } =  statement{
-            assert_eq!(&name.value, expected_identifier);
-            assert_eq!(&name.token_literal(), expected_identifier);
-        }
+        match statement {
+            s @ Statement::LetStatement { name, .. } => {
+                assert_eq!(s.token_literal(), "let");
+                assert_eq!(&name.value, expected_identifier);
+                assert_eq!(&name.token_literal(), expected_identifier);
+            },
+            other => { panic!("assertion failed: matched unexpected type {:?}", other) }
+        };
     }
 }
