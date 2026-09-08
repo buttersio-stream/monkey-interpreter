@@ -10,8 +10,7 @@ struct Parser {
 
 impl Parser {
     fn new(l: Lexer) -> Self {
-        let mut p = Self::default();
-        p.l = l;
+        let mut p = Parser { l, .. Self::default() };
 
         p.next_token();
         p.next_token();
@@ -99,7 +98,7 @@ impl Parser {
         Some(
             Statement::LetStatement {
                 token: cur_token,
-                name: name,
+                name,
                 value: Box::new(None)
             }
         )

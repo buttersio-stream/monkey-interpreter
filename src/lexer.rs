@@ -10,8 +10,7 @@ pub struct Lexer {
 
 impl Lexer {
     pub fn new(input: String) -> Self {
-        let mut lexer = Self::default();
-        lexer.input = input;
+        let mut lexer = Lexer { input, ..Self::default() };
         lexer.next_token();
         lexer
     }
@@ -129,11 +128,11 @@ const KEYWORDS: [(&str, TokenType); 7] = [
 ];
 
 fn is_letter(ch: char) -> bool {
-    'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
+    ch.is_ascii_lowercase() || ch.is_ascii_uppercase() || ch == '_'
 }
 
 fn is_digit(ch: char) -> bool {
-    '0' <= ch && ch <= '9'
+    ch.is_ascii_digit()
 }
 
 fn lookup_ident(ident: &str) -> TokenType {

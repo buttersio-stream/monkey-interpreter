@@ -1,14 +1,13 @@
-use crate::token::TokenType::{Eof};
-
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub literal: String
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum TokenType {
     Illegal,
+    #[default]
     Eof,
     Ident,
     Int,
@@ -35,10 +34,4 @@ pub enum TokenType {
     Return,
     Eq,
     NotEq
-}
-
-impl Default for TokenType {
-    fn default() -> Self {
-        Eof
-    }
 }
