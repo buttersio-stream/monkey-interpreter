@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")/../src-tauri"
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 if ! command -v cargo-audit >/dev/null 2>&1; then
   printf '\033[1;33m▶ cargo-audit not found — installing (one-time)…\033[0m\n'
