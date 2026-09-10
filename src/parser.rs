@@ -156,7 +156,7 @@ mod tests {
             if let Some(s) = statement.as_any().downcast_ref::<ReturnStatement>() {
                 assert_eq!(s.token_literal(), "return");
             } else {
-                panic!("assertion failed: matched unexpected type {:?}", statement)
+                panic!("assertion failed: matched unexpected type {:?}", statement);
             };
         }
     }
