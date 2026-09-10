@@ -193,6 +193,6 @@ mod tests {
             ]
         };
 
-        assert_eq!("let myVar = anotherVar;", program.to_string())
+        assert_eq!("let myVar = anotherVar;", program.to_string());
     }
 }
