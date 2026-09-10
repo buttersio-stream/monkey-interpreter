@@ -1,6 +1,6 @@
 use std::{any::Any, fmt::Debug};
 
-use crate::{token::Token};
+use crate::token::Token;
 
 pub trait Node {
     fn token_literal(&self) -> String;
@@ -17,7 +17,7 @@ pub trait Expression: Node + Debug {
 }
 
 pub struct Program {
-    pub statements: Vec<Box<dyn Statement>>
+    pub statements: Vec<Box<dyn Statement>>,
 }
 
 impl Node for Program {
@@ -39,14 +39,16 @@ impl Node for Program {
         out
     }
 
-    fn as_any(&self) -> &dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Debug)]
 pub struct LetStatement {
     pub token: Token,
     pub name: Identifier,
-    pub value: Option<Box<dyn Expression>>
+    pub value: Option<Box<dyn Expression>>,
 }
 
 impl Node for LetStatement {
@@ -70,7 +72,9 @@ impl Node for LetStatement {
         out
     }
 
-    fn as_any(&self) -> &dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Statement for LetStatement {
@@ -80,7 +84,7 @@ impl Statement for LetStatement {
 #[derive(Debug)]
 pub struct Identifier {
     pub token: Token,
-    pub value: String
+    pub value: String,
 }
 
 impl Expression for Identifier {
@@ -96,13 +100,15 @@ impl Node for Identifier {
         self.value.clone()
     }
 
-    fn as_any(&self) -> &dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Debug)]
 pub struct ReturnStatement {
     pub token: Token,
-    pub return_value: Option<Box<dyn Expression>>
+    pub return_value: Option<Box<dyn Expression>>,
 }
 
 impl Node for ReturnStatement {
@@ -123,7 +129,9 @@ impl Node for ReturnStatement {
         out
     }
 
-    fn as_any(&self) -> &dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Statement for ReturnStatement {
@@ -133,7 +141,7 @@ impl Statement for ReturnStatement {
 #[derive(Debug)]
 pub struct ExpressionStatement {
     pub token: Token,
-    pub expression: Option<Box<dyn Expression>>
+    pub expression: Option<Box<dyn Expression>>,
 }
 
 impl Node for ExpressionStatement {
@@ -149,7 +157,9 @@ impl Node for ExpressionStatement {
         }
     }
 
-    fn as_any(&self) -> &dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Statement for ExpressionStatement {
@@ -158,39 +168,37 @@ impl Statement for ExpressionStatement {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::{Identifier, LetStatement, Node, Program}, token::{Token, TokenType::{Ident, Let}}};
+    use crate::{
+        ast::{Identifier, LetStatement, Node, Program},
+        token::{
+            Token,
+            TokenType::{Ident, Let},
+        },
+    };
 
     #[test]
     fn test_to_string() {
         let program = Program {
-            statements: vec![
-                Box::new(
-                    LetStatement {
-                        token: Token {
-                            token_type: Let,
-                            literal: "let".to_string()
-                        },
-                        name: Identifier { 
-                            token: Token { 
-                                token_type:Ident, 
-                                literal: "myVar".to_string()
-                            }, 
-                            value: "myVar".to_string()
-                        },
-                        value: Some(
-                            Box::new(
-                                Identifier {
-                                    token: Token {
-                                        token_type: Ident,
-                                        literal: "anotherVar".to_string()
-                                    },
-                                    value: "anotherVar".to_string()
-                                }
-                            )
-                        )
-                    }
-                )
-            ]
+            statements: vec![Box::new(LetStatement {
+                token: Token {
+                    token_type: Let,
+                    literal: "let".to_string(),
+                },
+                name: Identifier {
+                    token: Token {
+                        token_type: Ident,
+                        literal: "myVar".to_string(),
+                    },
+                    value: "myVar".to_string(),
+                },
+                value: Some(Box::new(Identifier {
+                    token: Token {
+                        token_type: Ident,
+                        literal: "anotherVar".to_string(),
+                    },
+                    value: "anotherVar".to_string(),
+                })),
+            })],
         };
 
         assert_eq!("let myVar = anotherVar;", program.to_string());

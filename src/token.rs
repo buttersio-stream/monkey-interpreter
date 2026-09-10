@@ -1,7 +1,7 @@
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
-    pub literal: String
+    pub literal: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -33,5 +33,5 @@ pub enum TokenType {
     Else,
     Return,
     Eq,
-    NotEq
+    NotEq,
 }

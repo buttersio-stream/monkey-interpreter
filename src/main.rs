@@ -1,12 +1,12 @@
-pub mod token;
-pub mod lexer;
-pub mod repl;
 pub mod ast;
+pub mod lexer;
 pub mod parser;
+pub mod repl;
+pub mod token;
 
 use std::io;
 
-fn main() -> io::Result<()>{
+fn main() -> io::Result<()> {
     let stdin = io::stdin();
     let stdout = io::stdout();
 
@@ -16,4 +16,3 @@ fn main() -> io::Result<()>{
     println!("Hello! This is the Monkey programming language!");
     repl::start(stdin_lock, stdout_lock)
 }
-

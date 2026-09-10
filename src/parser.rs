@@ -1,16 +1,26 @@
-use crate::{ast::{Identifier, LetStatement, Program, ReturnStatement, Statement}, lexer::Lexer, token::{Token, TokenType::{self, Assign, Eof, Ident, Let, Return, Semicolon}}};
+use crate::{
+    ast::{Identifier, LetStatement, Program, ReturnStatement, Statement},
+    lexer::Lexer,
+    token::{
+        Token,
+        TokenType::{self, Assign, Eof, Ident, Let, Return, Semicolon},
+    },
+};
 
 #[derive(Default, Debug)]
-struct Parser {
+pub struct Parser {
     l: Lexer,
     cur_token: Token,
     peek_token: Token,
-    errors: Vec<String>
+    errors: Vec<String>,
 }
 
 impl Parser {
-    fn new(l: Lexer) -> Self {
-        let mut p = Parser { l, .. Self::default() };
+    pub fn new(l: Lexer) -> Self {
+        let mut p = Parser {
+            l,
+            ..Self::default()
+        };
 
         p.next_token();
         p.next_token();
@@ -22,9 +32,9 @@ impl Parser {
         self.peek_token = self.l.next_token();
     }
 
-    fn parse_program(&mut self) -> Program {
+    pub fn parse_program(&mut self) -> Program {
         let mut program = Program {
-            statements: Vec::new()
+            statements: Vec::new(),
         };
 
         loop {
@@ -45,7 +55,7 @@ impl Parser {
         match self.cur_token.token_type {
             Let => self.parse_let_statement(),
             Return => self.parse_return_statement(),
-            _ => None
+            _ => None,
         }
     }
 
@@ -64,11 +74,10 @@ impl Parser {
             }
         }
 
-        Some(
-            Box::new(
-                ReturnStatement { token: cur_token, return_value: None }
-            )
-        )
+        Some(Box::new(ReturnStatement {
+            token: cur_token,
+            return_value: None,
+        }))
     }
 
     fn parse_let_statement(&mut self) -> Option<Box<dyn Statement>> {
@@ -82,7 +91,7 @@ impl Parser {
         let literal = next_token.literal.clone();
         let name = Identifier {
             token: next_token,
-            value: literal
+            value: literal,
         };
 
         if !self.expect_peek(Assign) {
@@ -97,15 +106,11 @@ impl Parser {
             }
         }
 
-        Some(
-            Box::new(
-                LetStatement {
-                    token: cur_token,
-                    name,
-                    value: None
-                }
-            )
-        )
+        Some(Box::new(LetStatement {
+            token: cur_token,
+            name,
+            value: None,
+        }))
     }
 
     fn cur_token_is(&self, t: TokenType) -> bool {
@@ -127,22 +132,31 @@ impl Parser {
     }
 
     fn peek_error(&mut self, t: TokenType) {
-        let msg = format!("expected next token to be {:?}, got {:?} instead", t, self.peek_token.token_type);
+        let msg = format!(
+            "expected next token to be {:?}, got {:?} instead",
+            t, self.peek_token.token_type
+        );
         self.errors.push(msg);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::{LetStatement, Node, ReturnStatement, Statement}, lexer::Lexer, parser::Parser};
+    use crate::{
+        ast::{LetStatement, Node, ReturnStatement, Statement},
+        lexer::Lexer,
+        parser::Parser,
+    };
 
     #[test]
     fn test_return_statements() {
-        let input = String::from("
+        let input = String::from(
+            "
             return 5;
             return 10;
             return 993322;
-        ");
+        ",
+        );
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -156,18 +170,20 @@ mod tests {
             if let Some(s) = statement.as_any().downcast_ref::<ReturnStatement>() {
                 assert_eq!(s.token_literal(), "return");
             } else {
-                panic!("assertion failed: matched unexpected type {:?}", statement);
+                panic!("assertion failed: matched unexpected type {:?}", statement)
             };
         }
     }
 
     #[test]
     fn test_let_statements() {
-        let input = String::from("
+        let input = String::from(
+            "
             let x = 5;
             let y = 10;
             let foobar = 838383;
-        ");
+        ",
+        );
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -177,32 +193,33 @@ mod tests {
 
         assert_eq!(program.statements.len(), 3);
 
-        let tests = [
-            "x".to_string(), 
-            "y".to_string(), 
-            "foobar".to_string()];
+        let tests = ["x".to_string(), "y".to_string(), "foobar".to_string()];
 
         for (i, expected_identifier) in tests.iter().enumerate() {
-            test_let_statement(&program.statements[i], expected_identifier);
+            test_let_statement(&(*program.statements[i]), expected_identifier);
         }
     }
 
     fn check_parser_errors(p: &Parser) {
-        if p.errors.len() == 0 {
-            return
+        if p.errors.is_empty() {
+            return;
         }
 
         let count_message = format!("parser has {} errors\n", p.errors.len());
-        let error_messages = (&p.errors)
-            .into_iter()
+        let error_messages = p
+            .errors
+            .iter()
             .map(|s| format!(" {}", s))
             .collect::<Vec<_>>()
             .join("\n");
 
-        assert!(p.errors.len() == 0, "assertion failed: {count_message}{error_messages}\n");
+        assert!(
+            p.errors.is_empty(),
+            "assertion failed: {count_message}{error_messages}\n"
+        );
     }
 
-    fn test_let_statement(statement: &Box<dyn Statement>, expected_identifier: &String) {
+    fn test_let_statement(statement: &dyn Statement, expected_identifier: &String) {
         if let Some(s) = statement.as_any().downcast_ref::<LetStatement>() {
             assert_eq!(s.token_literal(), "let");
             assert_eq!(&s.name.value, expected_identifier);
