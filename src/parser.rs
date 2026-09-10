@@ -1,4 +1,4 @@
-use crate::{ast::{Identifier, Program, Statement}, lexer::Lexer, token::{Token, TokenType::{self, Assign, Eof, Ident, Let, Return, Semicolon}}};
+use crate::{ast::{Identifier, LetStatement, Program, ReturnStatement, Statement}, lexer::Lexer, token::{Token, TokenType::{self, Assign, Eof, Ident, Let, Return, Semicolon}}};
 
 #[derive(Default, Debug)]
 struct Parser {
@@ -41,7 +41,7 @@ impl Parser {
         program
     }
 
-    fn parse_statement(&mut self) -> Option<Statement> {
+    fn parse_statement(&mut self) -> Option<Box<dyn Statement>> {
         match self.cur_token.token_type {
             Let => self.parse_let_statement(),
             Return => self.parse_return_statement(),
@@ -49,7 +49,7 @@ impl Parser {
         }
     }
 
-    fn parse_return_statement(&mut self) -> Option<Statement> {
+    fn parse_return_statement(&mut self) -> Option<Box<dyn Statement>> {
         let cur_token = self.cur_token.clone();
 
         self.next_token();
@@ -65,11 +65,13 @@ impl Parser {
         }
 
         Some(
-            Statement::ReturnStatement { token: cur_token, return_value: Box::new(None) }
+            Box::new(
+                ReturnStatement { token: cur_token, return_value: None }
+            )
         )
     }
 
-    fn parse_let_statement(&mut self) -> Option<Statement> {
+    fn parse_let_statement(&mut self) -> Option<Box<dyn Statement>> {
         let cur_token = self.cur_token.clone();
 
         if !self.expect_peek(Ident) {
@@ -96,11 +98,13 @@ impl Parser {
         }
 
         Some(
-            Statement::LetStatement {
-                token: cur_token,
-                name,
-                value: Box::new(None)
-            }
+            Box::new(
+                LetStatement {
+                    token: cur_token,
+                    name,
+                    value: None
+                }
+            )
         )
     }
 
@@ -130,7 +134,7 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::{Node, Statement}, lexer::Lexer, parser::Parser};
+    use crate::{ast::{LetStatement, Node, ReturnStatement, Statement}, lexer::Lexer, parser::Parser};
 
     #[test]
     fn test_return_statements() {
@@ -149,11 +153,10 @@ mod tests {
         assert_eq!(program.statements.len(), 3);
 
         for statement in program.statements {
-             match statement {
-                s @ Statement::ReturnStatement { .. } => {
-                    assert_eq!(s.token_literal(), "return");
-                },
-                other => { panic!("assertion failed: matched unexpected type {:?}", other) }
+            if let Some(s) = statement.as_any().downcast_ref::<ReturnStatement>() {
+                assert_eq!(s.token_literal(), "return");
+            } else {
+                panic!("assertion failed: matched unexpected type {:?}", statement)
             };
         }
     }
@@ -199,14 +202,13 @@ mod tests {
         assert!(p.errors.len() == 0, "assertion failed: {count_message}{error_messages}\n");
     }
 
-    fn test_let_statement(statement: &Statement, expected_identifier: &String) {
-        match statement {
-            s @ Statement::LetStatement { name, .. } => {
-                assert_eq!(s.token_literal(), "let");
-                assert_eq!(&name.value, expected_identifier);
-                assert_eq!(&name.token_literal(), expected_identifier);
-            },
-            other => { panic!("assertion failed: matched unexpected type {:?}", other) }
+    fn test_let_statement(statement: &Box<dyn Statement>, expected_identifier: &String) {
+        if let Some(s) = statement.as_any().downcast_ref::<LetStatement>() {
+            assert_eq!(s.token_literal(), "let");
+            assert_eq!(&s.name.value, expected_identifier);
+            assert_eq!(&s.name.token_literal(), expected_identifier);
+        } else {
+            panic!("assertion failed: matched unexpected type {:?}", statement)
         };
     }
 }
