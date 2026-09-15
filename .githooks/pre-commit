@@ -25,7 +25,7 @@ fi
 
 say "pre-commit: rustfmt"
 cargo fmt --check \
-  || fail "Unformatted code. Run:  cargo fmt --manifest-path $MANIFEST"
+  || fail "Unformatted code. Run:  cargo fmt"
 
 say "pre-commit: clippy"
 cargo clippy --no-default-features --all-targets -- -D warnings \

@@ -138,7 +138,7 @@ impl Statement for ReturnStatement {
     fn statement_node(&self) {}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ExpressionStatement {
     pub token: Token,
     pub expression: Option<Box<dyn Expression>>,
