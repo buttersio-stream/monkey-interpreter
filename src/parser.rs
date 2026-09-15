@@ -2,14 +2,14 @@ use std::fmt::Debug;
 
 use crate::{
     ast::{
-        Expression, ExpressionStatement, Identifier, LetStatement, Program, ReturnStatement,
-        Statement,
+        Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Program,
+        ReturnStatement, Statement,
     },
     lexer::Lexer,
     parser::Precedence::Lowest,
     token::{
         Token,
-        TokenType::{self, Assign, Eof, Ident, Let, Return, Semicolon},
+        TokenType::{self, Assign, Eof, Ident, Int, Let, Return, Semicolon},
     },
 };
 
@@ -77,16 +77,30 @@ impl Parser {
 
     fn parse_expression(&self, _precedence: Precedence) -> Option<Box<dyn Expression>> {
         match self.cur_token.token_type {
-            Ident => Some(self.parse_identifier()),
+            Ident => self.parse_identifier(),
+            Int => self.parse_integer_literal(),
             _ => None,
         }
     }
 
-    fn parse_identifier(&self) -> Box<dyn Expression> {
-        Box::new(Identifier {
+    fn parse_identifier(&self) -> Option<Box<dyn Expression>> {
+        Some(Box::new(Identifier {
             token: self.cur_token.clone(),
             value: self.cur_token.literal.clone(),
-        })
+        }))
+    }
+
+    fn parse_integer_literal(&self) -> Option<Box<dyn Expression>> {
+        let possible_int = self.cur_token.literal.parse::<i64>();
+
+        if let Ok(value) = possible_int {
+            Some(Box::new(IntegerLiteral {
+                token: self.cur_token.clone(),
+                value,
+            }))
+        } else {
+            None
+        }
     }
 
     fn parse_expression_statement(&mut self) -> Option<Box<dyn Statement>> {
@@ -187,7 +201,10 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{ExpressionStatement, Identifier, LetStatement, Node, ReturnStatement, Statement},
+        ast::{
+            ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Node, ReturnStatement,
+            Statement,
+        },
         lexer::Lexer,
         parser::Parser,
     };
@@ -303,7 +320,47 @@ mod tests {
                 assert_eq!("foobar", ident.token_literal());
             } else {
                 panic!(
-                    "assertion_failed: expression not identifier, got {:?}",
+                    "assertion_failed: expression not Identifier, got {:?}",
+                    possible_identifier_expression
+                )
+            }
+        } else {
+            panic!("assertion_failed: no expression");
+        }
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = String::from("5;");
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+
+        assert_eq!(1, program.statements.len());
+
+        let possible_expression_statement = &program.statements[0];
+        let stmt = possible_expression_statement
+            .as_any()
+            .downcast_ref::<ExpressionStatement>()
+            .unwrap_or_else(|| {
+                panic!(
+                    "assertion_failed: matched unexpected type {:?}",
+                    possible_expression_statement
+                )
+            });
+
+        if let Some(ident_value) = &stmt.expression {
+            let possible_identifier_expression =
+                ident_value.as_any().downcast_ref::<IntegerLiteral>();
+
+            if let Some(ident) = possible_identifier_expression {
+                assert_eq!(5, ident.value);
+                assert_eq!("5", ident.token_literal());
+            } else {
+                panic!(
+                    "assertion_failed: expression not IntegerLiteral, got {:?}",
                     possible_identifier_expression
                 )
             }
