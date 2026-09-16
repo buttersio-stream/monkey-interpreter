@@ -2,14 +2,14 @@ use std::fmt::Debug;
 
 use crate::{
     ast::{
-        Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Program,
-        ReturnStatement, Statement,
+        Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement,
+        PrefixExpression, Program, ReturnStatement, Statement,
     },
     lexer::Lexer,
-    parser::Precedence::Lowest,
+    parser::Precedence::{Lowest, Prefix},
     token::{
         Token,
-        TokenType::{self, Assign, Eof, Ident, Int, Let, Return, Semicolon},
+        TokenType::{self, Assign, Bang, Eof, Ident, Int, Let, Minus, Return, Semicolon},
     },
 };
 
@@ -19,7 +19,7 @@ enum Precedence {
     _LessGreater,
     _Sum,
     _Product,
-    _Prefix,
+    Prefix,
     _Call,
 }
 
@@ -75,11 +75,17 @@ impl Parser {
         }
     }
 
-    fn parse_expression(&self, _precedence: Precedence) -> Option<Box<dyn Expression>> {
+    fn parse_expression(&mut self, _precedence: Precedence) -> Option<Box<dyn Expression>> {
         match self.cur_token.token_type {
             Ident => self.parse_identifier(),
             Int => self.parse_integer_literal(),
-            _ => None,
+            Bang => self.parse_prefix_expression(),
+            Minus => self.parse_prefix_expression(),
+            unknown => {
+                self.errors
+                    .push(format!("no prefix parse function for {:?}", unknown));
+                None
+            }
         }
     }
 
@@ -101,6 +107,19 @@ impl Parser {
         } else {
             None
         }
+    }
+
+    fn parse_prefix_expression(&mut self) -> Option<Box<dyn Expression>> {
+        let mut expression = PrefixExpression {
+            token: self.cur_token.clone(),
+            operator: self.cur_token.literal.clone(),
+            ..PrefixExpression::default()
+        };
+
+        self.next_token();
+        expression.right = self.parse_expression(Prefix);
+
+        Some(Box::new(expression))
     }
 
     fn parse_expression_statement(&mut self) -> Option<Box<dyn Statement>> {
@@ -202,8 +221,8 @@ impl Parser {
 mod tests {
     use crate::{
         ast::{
-            ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Node, ReturnStatement,
-            Statement,
+            Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Node,
+            PrefixExpression, ReturnStatement, Statement,
         },
         lexer::Lexer,
         parser::Parser,
@@ -261,12 +280,75 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_parsing_prefix_expressions() {
+        let tests = [("!5;".to_string(), "!", 5), ("-15".to_string(), "-", 15)];
+
+        for (input, operator, integer_value) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
+
+            assert_eq!(program.statements.len(), 1);
+
+            let possible_expression_statement = &program.statements[0];
+            let stmt = possible_expression_statement
+                .as_any()
+                .downcast_ref::<ExpressionStatement>()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "assertion_failed: matched unexpected type {:?}",
+                        possible_expression_statement
+                    )
+                });
+
+            if let Some(ident_value) = &stmt.expression {
+                let possible_prefix_expression =
+                    ident_value.as_any().downcast_ref::<PrefixExpression>();
+
+                if let Some(exp) = possible_prefix_expression {
+                    assert_eq!(exp.operator, operator);
+                    test_integer_literal(&exp.right, integer_value);
+                } else {
+                    panic!(
+                        "assertion_failed: expression not PrefixExpression, got {:?}",
+                        possible_prefix_expression
+                    )
+                }
+            } else {
+                panic!("assertion_failed: no expression");
+            }
+        }
+    }
+
+    fn test_integer_literal(possible_expression: &Option<Box<dyn Expression>>, expected: i64) {
+        if let Some(expression) = possible_expression {
+            let integer_literal = expression
+                .as_any()
+                .downcast_ref::<IntegerLiteral>()
+                .unwrap_or_else(|| {
+                    panic!("assertion_failed: matched unexpected_type {:?}", expression)
+                });
+
+            assert_eq!(integer_literal.value, expected);
+            assert_eq!(integer_literal.token_literal(), format!("{}", expected));
+        } else {
+            panic!("assertion_failed: no expression")
+        }
+    }
+
     fn check_parser_errors(p: &Parser) {
         if p.errors.is_empty() {
             return;
         }
 
-        let count_message = format!("parser has {} errors\n", p.errors.len());
+        let count_message = if p.errors.len() == 1 {
+            "parser has 1 error\n".to_string()
+        } else {
+            format!("parser has {} errors\n", p.errors.len())
+        };
+
         let error_messages = p
             .errors
             .iter()
@@ -299,7 +381,7 @@ mod tests {
         let program = parser.parse_program();
         check_parser_errors(&parser);
 
-        assert_eq!(1, program.statements.len());
+        assert_eq!(program.statements.len(), 1);
 
         let possible_expression_statement = &program.statements[0];
         let stmt = possible_expression_statement
@@ -316,8 +398,8 @@ mod tests {
             let possible_identifier_expression = ident_value.as_any().downcast_ref::<Identifier>();
 
             if let Some(ident) = possible_identifier_expression {
-                assert_eq!("foobar", ident.value);
-                assert_eq!("foobar", ident.token_literal());
+                assert_eq!(ident.value, "foobar");
+                assert_eq!(ident.token_literal(), "foobar");
             } else {
                 panic!(
                     "assertion_failed: expression not Identifier, got {:?}",
@@ -338,7 +420,7 @@ mod tests {
         let program = parser.parse_program();
         check_parser_errors(&parser);
 
-        assert_eq!(1, program.statements.len());
+        assert_eq!(program.statements.len(), 1);
 
         let possible_expression_statement = &program.statements[0];
         let stmt = possible_expression_statement
@@ -356,8 +438,8 @@ mod tests {
                 ident_value.as_any().downcast_ref::<IntegerLiteral>();
 
             if let Some(ident) = possible_identifier_expression {
-                assert_eq!(5, ident.value);
-                assert_eq!("5", ident.token_literal());
+                assert_eq!(ident.value, 5);
+                assert_eq!(ident.token_literal(), "5");
             } else {
                 panic!(
                     "assertion_failed: expression not IntegerLiteral, got {:?}",

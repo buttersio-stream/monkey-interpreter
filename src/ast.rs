@@ -129,6 +129,41 @@ impl Node for IntegerLiteral {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct PrefixExpression {
+    pub token: Token,
+    pub operator: String,
+    pub right: Option<Box<dyn Expression>>,
+}
+
+impl Expression for PrefixExpression {
+    fn expression_node(&self) {}
+}
+
+impl Node for PrefixExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+
+        out.push('(');
+        out.push_str(&self.operator);
+
+        if let Some(right) = &self.right {
+            out.push_str(&right.to_string());
+        }
+        out.push(')');
+
+        out
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 #[derive(Debug)]
 pub struct ReturnStatement {
     pub token: Token,
