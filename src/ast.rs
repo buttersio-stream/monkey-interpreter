@@ -12,8 +12,29 @@ pub trait Statement: Node + Debug {
     fn statement_node(&self);
 }
 
-pub trait Expression: Node + Debug {
+pub trait ExpressionClone {
+    fn clone_box(&self) -> Box<dyn Expression>;
+}
+
+pub trait Expression: Node + Debug + ExpressionClone {
     fn expression_node(&self);
+}
+
+// TODO: After I know the full implementation of trait methods I should go through
+// and see if I can make a generic implementation for them like this.
+impl<T> ExpressionClone for T
+where
+    T: 'static + Expression + Clone,
+{
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Expression> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
 }
 
 pub struct Program {
@@ -81,7 +102,7 @@ impl Statement for LetStatement {
     fn statement_node(&self) {}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Identifier {
     pub token: Token,
     pub value: String,
@@ -105,7 +126,7 @@ impl Node for Identifier {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IntegerLiteral {
     pub token: Token,
     pub value: i64,
@@ -129,7 +150,7 @@ impl Node for IntegerLiteral {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct PrefixExpression {
     pub token: Token,
     pub operator: String,
@@ -150,6 +171,47 @@ impl Node for PrefixExpression {
 
         out.push('(');
         out.push_str(&self.operator);
+
+        if let Some(right) = &self.right {
+            out.push_str(&right.to_string());
+        }
+        out.push(')');
+
+        out
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct InfixExpression {
+    pub token: Token,
+    pub left: Option<Box<dyn Expression>>,
+    pub operator: String,
+    pub right: Option<Box<dyn Expression>>,
+}
+
+impl Expression for InfixExpression {
+    fn expression_node(&self) {}
+}
+
+impl Node for InfixExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+
+        out.push('(');
+
+        if let Some(left) = &self.left {
+            out.push_str(&left.to_string());
+        }
+
+        out.push_str(&format!(" {} ", self.operator));
 
         if let Some(right) = &self.right {
             out.push_str(&right.to_string());
