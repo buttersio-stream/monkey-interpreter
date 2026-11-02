@@ -348,6 +348,46 @@ mod tests {
     }
 
     #[test]
+    fn test_operator_precedence_parsing() {
+        let tests = [
+            ("-a * b".to_string(), "((-a) * b)".to_string()),
+            ("!-a".to_string(), "(!(-a))".to_string()),
+            ("a + b + c".to_string(), "((a + b) + c)".to_string()),
+            ("a + b - c".to_string(), "((a + b) - c)".to_string()),
+            ("a * b * c".to_string(), "((a * b) * c)".to_string()),
+            ("a * b / c".to_string(), "((a * b) / c)".to_string()),
+            ("a + b / c".to_string(), "(a + (b / c))".to_string()),
+            (
+                "a + b * c + d / e - f".to_string(),
+                "(((a + (b * c)) + (d / e)) - f)".to_string(),
+            ),
+            ("3 + 4; -5 * 5".to_string(), "(3 + 4)((-5) * 5)".to_string()),
+            (
+                "5 > 4 == 3 < 4".to_string(),
+                "((5 > 4) == (3 < 4))".to_string(),
+            ),
+            (
+                "5 < 4 != 3 > 4".to_string(),
+                "((5 < 4) != (3 > 4))".to_string(),
+            ),
+            (
+                "3 + 4 * 5 == 3 * 1 + 4 * 5".to_string(),
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))".to_string(),
+            ),
+        ];
+
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
+
+            let actual = program.to_string();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
     fn test_parsing_infix_expressions() {
         let tests = [
             ("5 + 5".to_string(), 5, "+", 5),
