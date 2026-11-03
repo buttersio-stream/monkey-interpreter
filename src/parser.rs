@@ -292,8 +292,16 @@ mod tests {
             LetStatement, Node, PrefixExpression, ReturnStatement, Statement,
         },
         lexer::Lexer,
-        parser::Parser,
+        parser::{
+            Parser,
+            tests::_Literal::{Number, Text},
+        },
     };
+
+    enum _Literal {
+        Text(String),
+        Number(i64),
+    }
 
     #[test]
     fn test_return_statements() {
@@ -423,9 +431,9 @@ mod tests {
                 let possible_infix_expression = value.as_any().downcast_ref::<InfixExpression>();
 
                 if let Some(exp) = possible_infix_expression {
-                    test_integer_literal(&exp.left, left_value);
+                    test_integer_literal(&exp.left, left_value).unwrap();
                     assert_eq!(exp.operator, operator);
-                    test_integer_literal(&exp.right, right_value);
+                    test_integer_literal(&exp.right, right_value).unwrap();
                 } else {
                     panic!(
                         "assertion_failed: expression not InfixExpression, got {:?}",
@@ -467,7 +475,7 @@ mod tests {
 
                 if let Some(exp) = possible_prefix_expression {
                     assert_eq!(exp.operator, operator);
-                    test_integer_literal(&exp.right, integer_value);
+                    test_integer_literal(&exp.right, integer_value).unwrap();
                 } else {
                     panic!(
                         "assertion_failed: expression not PrefixExpression, got {:?}",
@@ -480,19 +488,105 @@ mod tests {
         }
     }
 
-    fn test_integer_literal(possible_expression: &Option<Box<dyn Expression>>, expected: i64) {
+    fn test_integer_literal(
+        possible_expression: &Option<Box<dyn Expression>>,
+        expected: i64,
+    ) -> Result<(), String> {
         if let Some(expression) = possible_expression {
-            let integer_literal = expression
-                .as_any()
-                .downcast_ref::<IntegerLiteral>()
-                .unwrap_or_else(|| {
-                    panic!("assertion_failed: matched unexpected_type {:?}", expression)
-                });
+            if let Some(integer_literal) = expression.as_any().downcast_ref::<IntegerLiteral>() {
+                if integer_literal.value != expected {
+                    return Err(format!(
+                        "Expected {} to equal {}",
+                        integer_literal.value, expected
+                    ));
+                }
 
-            assert_eq!(integer_literal.value, expected);
-            assert_eq!(integer_literal.token_literal(), format!("{}", expected));
+                if integer_literal.token_literal() != format!("{}", expected) {
+                    return Err(format!(
+                        "Expected {} to equal {}",
+                        integer_literal.token_literal(),
+                        expected
+                    ));
+                }
+
+                Ok(())
+            } else {
+                Err(format!(
+                    "assertion_failed: matched unexpected_type {:?}",
+                    expression
+                ))
+            }
         } else {
-            panic!("assertion_failed: no expression")
+            Err("assertion_failed: no expression".to_string())
+        }
+    }
+
+    fn test_identifier(
+        possible_expression: &Option<Box<dyn Expression>>,
+        expected: String,
+    ) -> Result<(), String> {
+        if let Some(expression) = possible_expression {
+            if let Some(identifier) = expression.as_any().downcast_ref::<Identifier>() {
+                if identifier.value != expected {
+                    return Err(format!(
+                        "Expected {} to equal {}",
+                        identifier.value, expected
+                    ));
+                }
+
+                if identifier.token_literal() != expected {
+                    return Err(format!(
+                        "Expected {} to equal {}",
+                        identifier.token_literal(),
+                        expected
+                    ));
+                }
+
+                Ok(())
+            } else {
+                Err(format!(
+                    "assertion_failed: matched unexpected_type {:?}",
+                    expression
+                ))
+            }
+        } else {
+            Err("assertion_failed: no expression".to_string())
+        }
+    }
+
+    fn _test_literal_expression(
+        possible_expression: &Option<Box<dyn Expression>>,
+        expected: _Literal,
+    ) -> Result<(), String> {
+        match expected {
+            Text(value) => test_identifier(possible_expression, value),
+            Number(value) => test_integer_literal(possible_expression, value),
+        }
+    }
+
+    fn _test_infix_expression(
+        possible_expression: &Option<Box<dyn Expression>>,
+        left: _Literal,
+        operator: String,
+        right: _Literal,
+    ) -> Result<(), String> {
+        if let Some(expression) = possible_expression {
+            if let Some(infix) = expression.as_any().downcast_ref::<InfixExpression>() {
+                _test_literal_expression(&infix.left, left)?;
+                if infix.operator != operator {
+                    return Err(format!("Expected {} to equal {}", infix.operator, operator));
+                }
+                _test_literal_expression(&infix.right, right)?;
+
+                Ok(())
+            } else {
+                Err(format!(
+                    "assertion_failed: matched unexpected_type {:?}",
+                    expression
+                ))
+            }
+        } else {
+            Err("assertion_failed: no expression".to_string())
         }
     }
 
@@ -552,21 +646,7 @@ mod tests {
                 )
             });
 
-        if let Some(ident_value) = &stmt.expression {
-            let possible_identifier_expression = ident_value.as_any().downcast_ref::<Identifier>();
-
-            if let Some(ident) = possible_identifier_expression {
-                assert_eq!(ident.value, "foobar");
-                assert_eq!(ident.token_literal(), "foobar");
-            } else {
-                panic!(
-                    "assertion_failed: expression not Identifier, got {:?}",
-                    possible_identifier_expression
-                )
-            }
-        } else {
-            panic!("assertion_failed: no expression");
-        }
+        test_identifier(&stmt.expression, "foobar".to_string()).unwrap();
     }
 
     #[test]
