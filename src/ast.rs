@@ -127,6 +127,30 @@ impl Node for Identifier {
 }
 
 #[derive(Debug, Clone)]
+pub struct BooleanLiteral {
+    pub token: Token,
+    pub value: bool,
+}
+
+impl Expression for BooleanLiteral {
+    fn expression_node(&self) {}
+}
+
+impl Node for BooleanLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+
+    fn to_string(&self) -> String {
+        self.token.literal.clone()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct IntegerLiteral {
     pub token: Token,
     pub value: i64,

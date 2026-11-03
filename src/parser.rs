@@ -2,16 +2,16 @@ use std::fmt::Debug;
 
 use crate::{
     ast::{
-        Expression, ExpressionStatement, Identifier, InfixExpression, IntegerLiteral, LetStatement,
-        PrefixExpression, Program, ReturnStatement, Statement,
+        BooleanLiteral, Expression, ExpressionStatement, Identifier, InfixExpression,
+        IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
     },
     lexer::Lexer,
     parser::Precedence::{Equals, LessGreater, Lowest, Prefix, Product, Sum},
     token::{
         Token,
         TokenType::{
-            self, Assign, Asterisk, Bang, Eof, Eq, Gt, Ident, Int, Let, Lt, Minus, NotEq, Plus,
-            Return, Semicolon, Slash,
+            self, Assign, Asterisk, Bang, Eof, Eq, False, Gt, Ident, Int, Let, Lt, Minus, NotEq,
+            Plus, Return, Semicolon, Slash, True,
         },
     },
 };
@@ -94,6 +94,7 @@ impl Parser {
         let mut exp = match self.cur_token.token_type {
             Ident => self.parse_identifier(),
             Int => self.parse_integer_literal(),
+            True | False => self.parse_boolean_literal(),
             Bang | Minus => self.parse_prefix_expression(),
             unknown => {
                 self.errors
@@ -136,6 +137,19 @@ impl Parser {
 
         if let Ok(value) = possible_int {
             Some(Box::new(IntegerLiteral {
+                token: self.cur_token.clone(),
+                value,
+            }))
+        } else {
+            None
+        }
+    }
+
+    fn parse_boolean_literal(&self) -> Option<Box<dyn Expression>> {
+        let possible_bool = self.cur_token.literal.parse::<bool>();
+
+        if let Ok(value) = possible_bool {
+            Some(Box::new(BooleanLiteral {
                 token: self.cur_token.clone(),
                 value,
             }))
@@ -288,19 +302,20 @@ impl Parser {
 mod tests {
     use crate::{
         ast::{
-            Expression, ExpressionStatement, Identifier, InfixExpression, IntegerLiteral,
-            LetStatement, Node, PrefixExpression, ReturnStatement, Statement,
+            BooleanLiteral, Expression, ExpressionStatement, Identifier, InfixExpression,
+            IntegerLiteral, LetStatement, Node, PrefixExpression, ReturnStatement, Statement,
         },
         lexer::Lexer,
         parser::{
             Parser,
-            tests::_Literal::{Number, Text},
+            tests::Literal::{_Text, Boolean, Number},
         },
     };
 
-    enum _Literal {
-        Text(String),
+    enum Literal {
+        _Text(String),
         Number(i64),
+        Boolean(bool),
     }
 
     #[test]
@@ -382,6 +397,13 @@ mod tests {
                 "3 + 4 * 5 == 3 * 1 + 4 * 5".to_string(),
                 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))".to_string(),
             ),
+            ("true".to_string(), "true".to_string()),
+            ("false".to_string(), "false".to_string()),
+            (
+                "3 > 5 == false".to_string(),
+                "((3 > 5) == false)".to_string(),
+            ),
+            ("3 < 5 == true".to_string(), "((3 < 5) == true)".to_string()),
         ];
 
         for (input, expected) in tests {
@@ -398,14 +420,72 @@ mod tests {
     #[test]
     fn test_parsing_infix_expressions() {
         let tests = [
-            ("5 + 5".to_string(), 5, "+", 5),
-            ("5 - 5".to_string(), 5, "-", 5),
-            ("5 * 5".to_string(), 5, "*", 5),
-            ("5 / 5".to_string(), 5, "/", 5),
-            ("5 > 5".to_string(), 5, ">", 5),
-            ("5 < 5".to_string(), 5, "<", 5),
-            ("5 == 5".to_string(), 5, "==", 5),
-            ("5 != 5".to_string(), 5, "!=", 5),
+            (
+                "5 + 5".to_string(),
+                Literal::Number(5),
+                "+",
+                Literal::Number(5),
+            ),
+            (
+                "5 - 5".to_string(),
+                Literal::Number(5),
+                "-",
+                Literal::Number(5),
+            ),
+            (
+                "5 * 5".to_string(),
+                Literal::Number(5),
+                "*",
+                Literal::Number(5),
+            ),
+            (
+                "5 / 5".to_string(),
+                Literal::Number(5),
+                "/",
+                Literal::Number(5),
+            ),
+            (
+                "5 > 5".to_string(),
+                Literal::Number(5),
+                ">",
+                Literal::Number(5),
+            ),
+            (
+                "5 < 5".to_string(),
+                Literal::Number(5),
+                "<",
+                Literal::Number(5),
+            ),
+            (
+                "5 == 5".to_string(),
+                Literal::Number(5),
+                "==",
+                Literal::Number(5),
+            ),
+            (
+                "5 != 5".to_string(),
+                Literal::Number(5),
+                "!=",
+                Literal::Number(5),
+            ),
+            (
+                "true == true".to_string(),
+                Literal::Boolean(true),
+                "==",
+                Literal::Boolean(true),
+            ),
+            (
+                "true != false".to_string(),
+                Literal::Boolean(true),
+                "!=",
+                Literal::Boolean(false),
+            ),
+            (
+                "false == false".to_string(),
+                Literal::Boolean(false),
+                "==",
+                Literal::Boolean(false),
+            ),
         ];
 
         for (input, left_value, operator, right_value) in tests {
@@ -427,30 +507,20 @@ mod tests {
                     )
                 });
 
-            if let Some(value) = &stmt.expression {
-                let possible_infix_expression = value.as_any().downcast_ref::<InfixExpression>();
-
-                if let Some(exp) = possible_infix_expression {
-                    test_integer_literal(&exp.left, left_value).unwrap();
-                    assert_eq!(exp.operator, operator);
-                    test_integer_literal(&exp.right, right_value).unwrap();
-                } else {
-                    panic!(
-                        "assertion_failed: expression not InfixExpression, got {:?}",
-                        possible_infix_expression
-                    )
-                }
-            } else {
-                panic!("assertion_failed: no expression");
-            }
+            test_infix_expression(&stmt.expression, left_value, operator, right_value).unwrap();
         }
     }
 
     #[test]
     fn test_parsing_prefix_expressions() {
-        let tests = [("!5;".to_string(), "!", 5), ("-15".to_string(), "-", 15)];
+        let tests = [
+            ("!5;".to_string(), "!", Literal::Number(5)),
+            ("-15".to_string(), "-", Literal::Number(15)),
+            ("!true".to_string(), "!", Literal::Boolean(true)),
+            ("!false".to_string(), "!", Literal::Boolean(false)),
+        ];
 
-        for (input, operator, integer_value) in tests {
+        for (input, operator, value) in tests {
             let lexer = Lexer::new(input);
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
@@ -475,7 +545,7 @@ mod tests {
 
                 if let Some(exp) = possible_prefix_expression {
                     assert_eq!(exp.operator, operator);
-                    test_integer_literal(&exp.right, integer_value).unwrap();
+                    test_literal_expression(&exp.right, value).unwrap();
                 } else {
                     panic!(
                         "assertion_failed: expression not PrefixExpression, got {:?}",
@@ -505,6 +575,39 @@ mod tests {
                     return Err(format!(
                         "Expected {} to equal {}",
                         integer_literal.token_literal(),
+                        expected
+                    ));
+                }
+
+                Ok(())
+            } else {
+                Err(format!(
+                    "assertion_failed: matched unexpected_type {:?}",
+                    expression
+                ))
+            }
+        } else {
+            Err("assertion_failed: no expression".to_string())
+        }
+    }
+
+    fn test_boolean_literal(
+        possible_expression: &Option<Box<dyn Expression>>,
+        expected: bool,
+    ) -> Result<(), String> {
+        if let Some(expression) = possible_expression {
+            if let Some(boolean_literal) = expression.as_any().downcast_ref::<BooleanLiteral>() {
+                if boolean_literal.value != expected {
+                    return Err(format!(
+                        "Expected {} to equal {}",
+                        boolean_literal.value, expected
+                    ));
+                }
+
+                if boolean_literal.token_literal() != format!("{}", expected) {
+                    return Err(format!(
+                        "Expected {} to equal {}",
+                        boolean_literal.token_literal(),
                         expected
                     ));
                 }
@@ -554,29 +657,30 @@ mod tests {
         }
     }
 
-    fn _test_literal_expression(
+    fn test_literal_expression(
         possible_expression: &Option<Box<dyn Expression>>,
-        expected: _Literal,
+        expected: Literal,
     ) -> Result<(), String> {
         match expected {
-            Text(value) => test_identifier(possible_expression, value),
+            _Text(value) => test_identifier(possible_expression, value),
             Number(value) => test_integer_literal(possible_expression, value),
+            Boolean(value) => test_boolean_literal(possible_expression, value),
         }
     }
 
-    fn _test_infix_expression(
+    fn test_infix_expression(
         possible_expression: &Option<Box<dyn Expression>>,
-        left: _Literal,
-        operator: String,
-        right: _Literal,
+        left: Literal,
+        operator: &str,
+        right: Literal,
     ) -> Result<(), String> {
         if let Some(expression) = possible_expression {
             if let Some(infix) = expression.as_any().downcast_ref::<InfixExpression>() {
-                _test_literal_expression(&infix.left, left)?;
+                test_literal_expression(&infix.left, left)?;
                 if infix.operator != operator {
                     return Err(format!("Expected {} to equal {}", infix.operator, operator));
                 }
-                _test_literal_expression(&infix.right, right)?;
+                test_literal_expression(&infix.right, right)?;
 
                 Ok(())
             } else {
@@ -671,21 +775,36 @@ mod tests {
                 )
             });
 
-        if let Some(ident_value) = &stmt.expression {
-            let possible_identifier_expression =
-                ident_value.as_any().downcast_ref::<IntegerLiteral>();
+        test_integer_literal(&stmt.expression, 5).unwrap();
+    }
 
-            if let Some(ident) = possible_identifier_expression {
-                assert_eq!(ident.value, 5);
-                assert_eq!(ident.token_literal(), "5");
-            } else {
-                panic!(
-                    "assertion_failed: expression not IntegerLiteral, got {:?}",
-                    possible_identifier_expression
-                )
-            }
-        } else {
-            panic!("assertion_failed: no expression");
+    #[test]
+    fn test_boolean_expression() {
+        let tests = [
+            (String::from("true;"), true),
+            (String::from("false;"), false),
+        ];
+
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
+
+            assert_eq!(program.statements.len(), 1);
+
+            let possible_expression_statement = &program.statements[0];
+            let stmt = possible_expression_statement
+                .as_any()
+                .downcast_ref::<ExpressionStatement>()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "assertion_failed: matched unexpected type {:?}",
+                        possible_expression_statement
+                    )
+                });
+
+            test_boolean_literal(&stmt.expression, expected).unwrap();
         }
     }
 }
