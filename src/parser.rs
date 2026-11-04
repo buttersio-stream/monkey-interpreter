@@ -10,8 +10,8 @@ use crate::{
     token::{
         Token,
         TokenType::{
-            self, Assign, Asterisk, Bang, Eof, Eq, False, Gt, Ident, Int, Let, Lt, Minus, NotEq,
-            Plus, Return, Semicolon, Slash, True,
+            self, Assign, Asterisk, Bang, Eof, Eq, False, Gt, Ident, Int, LParen, Let, Lt, Minus,
+            NotEq, Plus, RParen, Return, Semicolon, Slash, True,
         },
     },
 };
@@ -96,6 +96,7 @@ impl Parser {
             Int => self.parse_integer_literal(),
             True | False => self.parse_boolean_literal(),
             Bang | Minus => self.parse_prefix_expression(),
+            LParen => self.parse_grouped_expression(),
             unknown => {
                 self.errors
                     .push(format!("no prefix parse function for {:?}", unknown));
@@ -156,6 +157,18 @@ impl Parser {
         } else {
             None
         }
+    }
+
+    fn parse_grouped_expression(&mut self) -> Option<Box<dyn Expression>> {
+        self.next_token();
+
+        let exp = self.parse_expression(Lowest);
+
+        if !self.expect_peek(RParen) {
+            return None;
+        }
+
+        exp
     }
 
     fn parse_prefix_expression(&mut self) -> Option<Box<dyn Expression>> {
@@ -404,6 +417,17 @@ mod tests {
                 "((3 > 5) == false)".to_string(),
             ),
             ("3 < 5 == true".to_string(), "((3 < 5) == true)".to_string()),
+            (
+                "1 + (2 + 3) + 4".to_string(),
+                "((1 + (2 + 3)) + 4)".to_string(),
+            ),
+            ("(5 + 5) * 2".to_string(), "((5 + 5) * 2)".to_string()),
+            ("2 / (5 + 5)".to_string(), "(2 / (5 + 5))".to_string()),
+            ("-(5 + 5)".to_string(), "(-(5 + 5))".to_string()),
+            (
+                "!(true == true)".to_string(),
+                "(!(true == true))".to_string(),
+            ),
         ];
 
         for (input, expected) in tests {
